@@ -1,0 +1,45 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "type-check": "vue-tsc --noEmit",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "jest --coverage",
+    "lint": "eslint src/**/*.{ts,vue}"
+  },
+  "dependencies": {
+    "@heroicons/vue": "^2.1.1",
+    "@xstate/inspect": "^0.8.0",
+    "@xstate/vue": "^2.0.0",
+    "axios": "^1.6.2",
+    "date-fns": "^4.1.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.3.11",
+    "vue-router": "^4.2.5",
+    "vue-toastification": "^2.0.0-rc.5",
+    "xstate": "^4.38.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.5",
+    "@vitejs/plugin-vue": "^4.5.2",
+    "@vue/eslint-config-typescript": "^12.0.0",
+    "@vue/test-utils": "^2.4.3",
+    "@vue/vue3-jest": "^29.2.6",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.56.0",
+    "eslint-plugin-vue": "^9.19.2",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.0.4",
+    "vite": "^5.0.10",
+    "vue-tsc": "^1.8.25"
+  }
+}
