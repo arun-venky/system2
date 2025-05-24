@@ -12,6 +12,7 @@
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
+    "@types/nodemailer": "^6.4.17",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -20,6 +21,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
+    "nodemailer": "^7.0.3",
     "swagger-ui-express": "^5.0.0",
     "winston": "^3.11.0"
   },

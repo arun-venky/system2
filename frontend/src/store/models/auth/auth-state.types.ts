@@ -1,5 +1,5 @@
-import { Role, Permission } from '../role';
-import { User } from '../user/user.types';
+import type { Role, Permission } from '../role';
+import type { User } from '../user/user.types';
 
 export interface AuthState {
     isAuthenticated: boolean;
@@ -8,4 +8,5 @@ export interface AuthState {
     refreshToken: string | null;
     permissions: Permission[];
     roles: Role[];
+    sessionTimeout: number;
 } 

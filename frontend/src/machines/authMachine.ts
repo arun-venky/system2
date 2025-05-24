@@ -1,5 +1,5 @@
-import { AxiosError } from 'axios'
-import { AuthContext, AuthResponse } from '@/store/models';
+import type { AxiosError } from 'axios'
+import type { AuthContext, AuthResponse } from '@/store/models';
 import { useAuthStore } from '../store/auth.store'
 import { createMachine, assign } from 'xstate'
 
@@ -17,6 +17,7 @@ export type AuthEvent =
   | { type: 'CANCEL' }
   | { type: 'CHECK_TOKEN' }
   | { type: 'TOKEN_EXPIRED' }
+  | { type: 'SESSION_WARNING' }
   | { type: 'done.invoke.loginService'; data: AuthResponse }
   | { type: 'done.invoke.signupService'; data: AuthResponse }
   | { type: 'error.platform.loginService'; data: { message: string } }
@@ -98,8 +99,8 @@ export const createAuthMachine = (initialContext: Partial<AuthContext> = {}) => 
         }
       },
       authenticated: {
-        entry: ['startTokenRefresh'],
-        exit: ['stopTokenRefresh'],
+        entry: ['startTokenRefresh', 'startSessionWarning'],
+        exit: ['stopTokenRefresh', 'stopSessionWarning'],
         on: {
           LOGOUT: {
             target: 'idle',
@@ -108,6 +109,10 @@ export const createAuthMachine = (initialContext: Partial<AuthContext> = {}) => 
           TOKEN_EXPIRED: {
             target: 'idle',
             actions: ['clearUser', 'setTokenExpiredError']
+          },
+          SESSION_WARNING: {
+            target: 'authenticated',
+            actions: 'showSessionWarning'
           }
         }
       },
@@ -234,6 +239,25 @@ export const createAuthMachine = (initialContext: Partial<AuthContext> = {}) => 
         } else {
           window.location.href = '/dashboard'
         }
+      },
+      startSessionWarning: (context) => {
+        if (context.tokenExpiry) {
+          const timeUntilExpiry = context.tokenExpiry - Date.now();
+          const warningTime = timeUntilExpiry - (5 * 60 * 1000); // 5 minutes before expiry
+          
+          if (warningTime > 0) {
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('sessionWarning'));
+            }, warningTime);
+          }
+        }
+      },    
+      stopSessionWarning: () => {
+        window.dispatchEvent(new CustomEvent('clearSessionWarning'));
+      },    
+      showSessionWarning: () => {
+        // This will be handled by the SessionWarning component
+        window.dispatchEvent(new CustomEvent('showSessionWarning'));
       }
     },
     services: {

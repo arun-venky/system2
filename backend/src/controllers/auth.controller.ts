@@ -5,6 +5,7 @@ import { AuditLog } from '../models/audit-log.model.js';
 import { generateToken, generateRefreshToken, parseUser } from '../utils/tokenUtils.js';
 import { logger, logAudit } from '../utils/logger.js';
 import { AuthRequest, validateTokenInternal } from '../middleware/auth.middleware.js';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../services/emailService.js';
 
 // Signup controller
 export const signup = async (req: Request, res: Response) => {
@@ -48,9 +49,20 @@ export const signup = async (req: Request, res: Response) => {
       email,
       password,
       role: viewerRole._id,
+      isVerified: false
     });
     
+    // Generate verification token
+    const verificationToken = await user.generateVerificationToken();
     await user.save();
+    
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, verificationToken);
+    } catch (emailError) {
+      logger.error('Failed to send verification email:', emailError);
+      // Don't expose the error to the client
+    }
     
     // Generate tokens
     const token = generateToken(user);
@@ -75,7 +87,7 @@ export const signup = async (req: Request, res: Response) => {
     
     // Send response
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please check your email to verify your account.',
       token,
       refreshToken,
       user: parseUser(user),
@@ -485,9 +497,13 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
     const resetToken = await user.generateResetToken();
     await user.save();
     
-    // TODO: Send email with reset token
-    // For now, we'll just log it
-    logger.info(`Password reset token for ${email}: ${resetToken}`);
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(email, resetToken);
+    } catch (emailError) {
+      logger.error('Failed to send password reset email:', emailError);
+      // Don't expose the error to the client
+    }
     
     // Log the action
     await AuditLog.create({
@@ -563,36 +579,39 @@ export const verify = async (req: Request, res: Response) => {
 };
 
 // Verify email controller
-export const verifyEmail = async (req: AuthRequest, res: Response) => {
+export const verifyEmail = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required' });
+    }
+
+    // Find user with verification token
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpiry: { $gt: Date.now() }
+    });
     
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
     }
     
-    if (user.isVerified) {
-      return res.status(400).json({ message: 'Email is already verified' });
-    }
-    
-    // Generate new verification token
-    const verificationToken = await user.generateVerificationToken();
+    // Mark user as verified and clear verification token
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpiry = undefined;
     await user.save();
-    
-    // TODO: Send verification email
-    // For now, we'll just log it
-    logger.info(`Verification token for ${email}: ${verificationToken}`);
     
     // Log the action
     await AuditLog.create({
       userId: user._id,
-      action: 'validate_email',
+      action: 'verify_email',
       resource: 'auth',
-      details: `Email verified for ${email}`,
+      details: `Email verified for ${user.email}`,
     });
     
-    logAudit(user.id.toString(), 'validate_email', 'auth', `Email verified for ${email}`);
+    logAudit(user.id.toString(), 'verify_email', 'auth', `Email verified for ${user.email}`);
     
     res.status(200).json({ message: 'Email verified successfully' });
   } catch (error) {
@@ -602,7 +621,7 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
 };
 
 // Resend verification email controller
-export const resendVerificationEmail = async (req: AuthRequest, res: Response) => {
+export const resendVerificationEmail = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -619,9 +638,13 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
     const verificationToken = await user.generateVerificationToken();
     await user.save();
     
-    // TODO: Send verification email
-    // For now, we'll just log it
-    logger.info(`Verification token for ${email}: ${verificationToken}`);
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, verificationToken);
+    } catch (emailError) {
+      logger.error('Failed to send verification email:', emailError);
+      // Don't expose the error to the client
+    }
     
     // Log the action
     await AuditLog.create({
@@ -677,59 +700,13 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Update profile controller
-export const updateProfile = async (req: AuthRequest, res: Response) => {
+export const refreshSession = async (req: Request, res: Response) => {
   try {
-    const { username, email } = req.body;
-    const user = await User.findById(req.user?._id);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Check if new username/email is already taken
-    if (username && username !== user.username) {
-      const existingUser = await User.findOne({ username });
-      if (existingUser) {
-        return res.status(400).json({ message: 'Username is already taken' });
-      }
-      user.username = username;
-    }
-    
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ message: 'Email is already taken' });
-      }
-      user.email = email;
-      user.isVerified = false; // Require re-verification if email changes
-      const verificationToken = await user.generateVerificationToken();
-      // TODO: Send verification email
-      logger.info(`New verification token for ${email}: ${verificationToken}`);
-    }
-    
-    await user.save();
-    
-    // Log the action
-    await AuditLog.create({
-      userId: user._id,
-      action: 'update_profile',
-      resource: 'auth',
-      details: `Profile updated for ${user.email}`,
-    });
-    
-    logAudit(user.id.toString(), 'update_profile', 'auth', `Profile updated for ${user.email}`);
-    
-    res.status(200).json({
-      message: 'Profile updated successfully',
-      user: parseUser(user)
-    });
+    const { token } = req.body;
+    const user = await validateTokenInternal(token);
   } catch (error) {
-    logger.error('Update profile error', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    logger.error('Refresh session error', error);
+    res.status(500).json({ message: 'Error refreshing session' });
   }
 };
 
-function verifyTokenInternal(req: Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) {
-  throw new Error('Function not implemented.');
-}

@@ -1,4 +1,4 @@
-import { UserContext } from '@/store/models';
+import type { UserContext } from '@/store/models';
 import { useUserStore } from '../store/user.store'
 import { createMachine, assign } from 'xstate'
 

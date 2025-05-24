@@ -41,23 +41,22 @@ export const getRoleById = async (req: Request, res: Response) => {
 // Create role controller
 export const createRole = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, permissions } = req.body;
+    const { name, description, permissions } = req.body;
     
     // Check if role already exists
     const existingRole = await Role.findOne({ name });
-    
     if (existingRole) {
-      return res.status(400).json({ 
-        message: 'Role with this name already exists' 
+      return res.status(400).json({
+        message: 'Role with this name already exists'
       });
     }
     
     // Create new role
     const role = new Role({
       name,
+      description,
       permissions: permissions || [],
     });
-    
     await role.save();
     
     // Log the create action
@@ -89,7 +88,7 @@ export const createRole = async (req: AuthRequest, res: Response) => {
 export const updateRole = async (req: AuthRequest, res: Response) => {
   try {
     const roleId = req.params.id;
-    const updates = req.body;
+    const updates = req.body;    
     
     // Find and update role
     const role = await Role.findByIdAndUpdate(
@@ -405,57 +404,6 @@ export const removeRoleFromUsers = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     logger.error(`Error removing role ${req.params.id} from users`, error);
     res.status(500).json({ message: 'Error removing role from users' });
-  }
-};
-
-// Duplicate role controller
-export const duplicateRole = async (req: AuthRequest, res: Response) => {
-  try {
-    const roleId = req.params.id;
-    const { name } = req.body;
-    
-    // Find original role
-    const originalRole = await Role.findById(roleId);
-    if (!originalRole) {
-      return res.status(404).json({ message: 'Role not found' });
-    }
-    
-    // Check if new name already exists
-    const existingRole = await Role.findOne({ name });
-    if (existingRole) {
-      return res.status(400).json({ message: 'Role with this name already exists' });
-    }
-    
-    // Create new role with same permissions
-    const newRole = new Role({
-      name,
-      permissions: originalRole.permissions,
-    });
-    
-    await newRole.save();
-    
-    // Log the action
-    await AuditLog.create({
-      userId: req.user?._id,
-      action: 'duplicate',
-      resource: 'roles',
-      details: `Role ${originalRole.name} duplicated as ${name}`,
-    });
-    
-    logAudit(
-      req.user?._id?.toString() || 'system',
-      'duplicate',
-      'roles',
-      `Role ${originalRole.name} duplicated as ${name}`
-    );
-    
-    res.status(201).json({
-      message: 'Role duplicated successfully',
-      role: newRole,
-    });
-  } catch (error) {
-    logger.error(`Error duplicating role ${req.params.id}`, error);
-    res.status(500).json({ message: 'Error duplicating role' });
   }
 };
 

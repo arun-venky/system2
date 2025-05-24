@@ -7,25 +7,25 @@ import DashboardLayout from '../router/layouts/DashboardLayout.vue';
 import AdminLayout from '../router/layouts/AdminLayout.vue';
 
 // Auth views
-import LoginView from '../router/views/auth/LoginView.vue'
-import SignupView from '../router/views/auth/SignupView.vue'
-import ForgotPasswordView from '../router/views/auth/ForgotPasswordView.vue'
-import ResetPasswordView from '../router/views/auth/ResetPasswordView.vue'
+import Login from '../router/views/auth/Login.vue'
+import Signup from './views/auth/Signup.vue'
+import ForgotPassword from './views/auth/ForgotPassword.vue'
+import ResetPassword from '../router/views/auth/ResetPassword.vue'
 
 // Dashboard views
-import DashboardView from '../router/views/dashboard/DashboardView.vue'
+import Dashboard from './views/dashboard/Dashboard.vue'
 
 // Management views
-import RoleManagementView from '../router/views/management/RoleManagementView.vue'
-import PageManagementView from '../router/views/management/PageManagementView.vue'
-import SecurityManagementView from '../router/views/management/SecurityManagementView.vue'
-import MenuManagementView from '../router/views/management/MenuManagementView.vue'
-import UserManagementView from '../router/views/management/UserManagementView.vue'
+import RoleManagement from '../router/views/management/RoleManagement.vue'
+import PageManagement from '../router/views/management/PageManagement.vue'
+import SecurityManagement from '../router/views/management/SecurityManagement.vue'
+import MenuManagement from '../router/views/management/MenuManagement.vue'
+import UserManagement from '../router/views/management/UserManagement.vue'
 
 // Error views
-import ForbiddenView from '../router/views/errors/ForbiddenView.vue'
-import NotFoundView from '../router/views/errors/NotFoundView.vue'
-import UnauthorizedView from '../router/views/errors/UnauthorizedView.vue'
+import Forbidden from './views/errors/Forbidden.vue'
+import NotFound from './views/errors/NotFound.vue'
+import Unauthorized from './views/errors/Unauthorized.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -43,7 +43,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'dashboard',
         name: 'dashboard',
-        component: DashboardView,
+        component: Dashboard,
         meta: { 
           title: 'Dashboard',
           requiresAuth: true
@@ -52,7 +52,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'pages',
         name: 'page-management',
-        component: PageManagementView,
+        component: PageManagement,
         meta: { 
           title: 'Page Management',
           requiresAuth: true,
@@ -62,7 +62,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'menus',
         name: 'menu-management',
-        component: MenuManagementView,
+        component: MenuManagement,
         meta: { 
           title: 'Menu Management',
           requiresAuth: true,
@@ -72,7 +72,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'users',
         name: 'user-management',
-        component: UserManagementView,
+        component: UserManagement,
         meta: { 
           title: 'User Management',
           requiresAuth: true,
@@ -82,7 +82,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'roles',
         name: 'role-management',
-        component: RoleManagementView,
+        component: RoleManagement,
         meta: { 
           title: 'Role Management',
           requiresAuth: true,
@@ -92,7 +92,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'security',
         name: 'security-management',
-        component: SecurityManagementView,
+        component: SecurityManagement,
         meta: { 
           title: 'Security Management',
           requiresAuth: true,
@@ -119,7 +119,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'login',
         name: 'login',
-        component: LoginView,
+        component: Login,
         meta: { 
           title: 'Login',
           requiresAuth: false
@@ -128,7 +128,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'signup',
         name: 'signup',
-        component: SignupView,
+        component: Signup,
         meta: { 
           title: 'Sign Up',
           requiresAuth: false
@@ -137,7 +137,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'forgot-password',
         name: 'forgot-password',
-        component: ForgotPasswordView,
+        component: ForgotPassword,
         meta: {
           title: 'Forgot Password',
           requiresAuth: false
@@ -146,7 +146,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'reset-password',
         name: 'reset-password',
-        component: ResetPasswordView,
+        component: ResetPassword,
         meta: {
           title: 'Reset Password',
           requiresAuth: false
@@ -157,7 +157,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/unauthorized',
     name: 'unauthorized',
-    component: UnauthorizedView,
+    component: Unauthorized,
     meta: {
       title: 'Unauthorized',
       requiresAuth: false
@@ -166,7 +166,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    component: NotFoundView,
+    component: NotFound,
     meta: { 
       title: 'Not Found',
       requiresAuth: false
@@ -197,14 +197,14 @@ router.beforeEach(async (to, from, next) => {
     ? to.matched.find(record => record.meta.permissions)?.meta.permissions as string[]
     : undefined
 
-  console.log('Navigation guard:', {
-    to: to.path,
-    matched: to.matched,
-    requiresAuth,
-    requiresAdmin,
-    requiresPermission,
-    meta: to.meta
-  })
+  // console.log('Navigation guard:', {
+  //   to: to.path,
+  //   matched: to.matched,
+  //   requiresAuth,
+  //   requiresAdmin,
+  //   requiresPermission,
+  //   meta: to.meta
+  // })
 
   // Set page title
   document.title = `SystemTwo ${'| ' + to.meta.title || ''}`

@@ -1,4 +1,4 @@
-import { RoleContext } from '@/store/models';
+import type { RoleContext } from '@/store/models';
 import { useRoleStore } from '../store/role.store'
 import { createMachine, assign } from 'xstate';
 
@@ -12,7 +12,14 @@ export type RoleEvent =
   | { type: 'CANCEL' }
   | { type: 'CONFIRM_DELETE' }
   | { type: 'RETRY' }
-  | { type: 'UPDATE_FORM'; [key: string]: any };
+  | { type: 'UPDATE_FORM'; [key: string]: any }
+  | { type: 'ADD_ACTION'; permissionIndex: number; action: string }
+  | { type: 'REMOVE_ACTION'; permissionIndex: number; action: string }
+  | { type: 'ADD_RESOURCE'; resource: string }
+  | { type: 'REMOVE_RESOURCE'; resourceIndex: number }
+  | { type: 'VIEW_USERS'; id: string }
+  | { type: 'ASSIGN_USERS'; userIds: string[] }
+  | { type: 'REMOVE_USERS'; userIds: string[] };
 
 export type RoleState =
   | { value: 'idle'; context: RoleContext }
@@ -20,6 +27,9 @@ export type RoleState =
   | { value: 'creating'; context: RoleContext }
   | { value: 'editing'; context: RoleContext }
   | { value: 'deleting'; context: RoleContext }
+  | { value: 'updating'; context: RoleContext }
+  | { value: 'viewing_users'; context: RoleContext }
+  | { value: 'assigning_users'; context: RoleContext }
   | { value: 'error'; context: RoleContext };
 
 // Create role management machine
@@ -28,7 +38,7 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
   
   return createMachine<RoleContext, RoleEvent, RoleState>({
     id: 'roleManagement',
-    initial: 'idle',
+    initial: 'loading',
     context: {
       roles: [],
       selectedRole: null,
@@ -36,6 +46,7 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
       isLoading: false,
       formData: {
         name: '',
+        description: '',
         permissions: []
       },
       ...initialContext
@@ -51,6 +62,10 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
           },
           DELETE: { 
             target: 'deleting',
+            actions: ['selectRole']
+          },
+          VIEW_USERS: {
+            target: 'viewing_users',
             actions: ['selectRole']
           }
         }
@@ -71,7 +86,11 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
       },
       creating: {
         entry: assign({ 
-          formData: { name: '', permissions: [] },
+          formData: { 
+            name: '', 
+            description: '',
+            permissions: []
+          },
           selectedRole: null 
         }),
         on: {
@@ -82,24 +101,61 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
           CANCEL: { target: 'idle' },
           UPDATE_FORM: {
             actions: ['updateFormData']
+          },
+          ADD_ACTION: {
+            actions: ['addAction']
+          },
+          REMOVE_ACTION: {
+            actions: ['removeAction']
+          },
+          ADD_RESOURCE: {
+            actions: ['addResource']
+          },
+          REMOVE_RESOURCE: {
+            actions: ['removeResource']
           }
         }
       },
       editing: {
-        entry: assign({
-          formData: (context) => ({ 
+        entry: assign({ 
+          formData: (context) => ({
             name: context.selectedRole?.name || '',
+            description: context.selectedRole?.description || '',
             permissions: context.selectedRole?.permissions || []
           })
         }),
         on: {
           SAVE: { 
-            target: 'loading',
-            actions: ['updateRole']
+            target: 'updating'
           },
           CANCEL: { target: 'idle' },
           UPDATE_FORM: {
             actions: ['updateFormData']
+          },
+          ADD_ACTION: {
+            actions: ['addAction']
+          },
+          REMOVE_ACTION: {
+            actions: ['removeAction']
+          },
+          ADD_RESOURCE: {
+            actions: ['addResource']
+          },
+          REMOVE_RESOURCE: {
+            actions: ['removeResource']
+          }
+        }
+      },
+      updating: {
+        invoke: {
+          src: 'updateRole',
+          onDone: {
+            target: 'loading',
+            actions: ['updateRole']
+          },
+          onError: {
+            target: 'error',
+            actions: ['setError']
           }
         }
       },
@@ -119,6 +175,43 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
           CANCEL: { target: 'idle' }
         }
       },
+      viewing_users: {
+        invoke: {
+          src: 'fetchRoleUsers',
+          onDone: {
+            target: 'viewing_users',
+            actions: ['setRoleUsers']
+          },
+          onError: {
+            target: 'error',
+            actions: ['setError']
+          }
+        },
+        on: {
+          ASSIGN_USERS: {
+            target: 'assigning_users',
+            actions: ['assignUsers']
+          },
+          REMOVE_USERS: {
+            target: 'assigning_users',
+            actions: ['removeUsers']
+          },
+          CANCEL: { target: 'idle' }
+        }
+      },
+      assigning_users: {
+        invoke: {
+          src: 'updateRoleUsers',
+          onDone: {
+            target: 'viewing_users',
+            actions: ['setRoleUsers']
+          },
+          onError: {
+            target: 'error',
+            actions: ['setError']
+          }
+        }
+      },
       error: {
         on: {
           RETRY: { target: 'loading' },
@@ -131,7 +224,8 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
       setRoles: assign({
         roles: (_, event) => {
           if ('data' in event) {
-            return event.data.roles || [];
+            console.log('Setting roles:', event.data);
+            return event.data;
           }
           return [];
         },
@@ -177,17 +271,195 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
           return 'Operation failed';
         },
         isLoading: (_) => false
+      }),
+      updateRole: async (context) => {
+        if (!context.selectedRole?._id) {
+          throw new Error('No role selected for update');
+        }
+        if (!context.formData.name) {
+          throw new Error('Role name is required');
+        }
+
+        // Validate and clean permissions
+        const validActions = ['create', 'read', 'update', 'delete'];
+        const validResources = ['users', 'pages', 'menus', 'roles', 'security'];
+        
+        const cleanedPermissions = context.formData.permissions
+          .filter(permission => validResources.includes(permission.resource))
+          .map(permission => ({
+            resource: permission.resource,
+            actions: permission.actions.filter(action => validActions.includes(action))
+          }));
+
+        const cleanedFormData = {
+          name: context.formData.name,
+          description: context.formData.description || '',
+          permissions: cleanedPermissions
+        };
+
+        console.log('Updating role with data:', cleanedFormData);
+        const response = await roleStore.updateRole(context.selectedRole._id, cleanedFormData);
+        console.log('Role updated:', response);
+        return response;
+      },
+      addAction: assign({
+        formData: (context, event) => {
+          if ('permissionIndex' in event && 'action' in event) {
+            const permissions = [...context.formData.permissions];
+            if (!permissions[event.permissionIndex].actions) {
+              permissions[event.permissionIndex].actions = [];
+            }
+            // Only add the action if it doesn't already exist
+            if (!permissions[event.permissionIndex].actions.includes(event.action)) {
+              permissions[event.permissionIndex].actions.push(event.action);
+            }
+            return {
+              ...context.formData,
+              permissions
+            };
+          }
+          return context.formData;
+        }
+      }),
+      removeAction: assign({
+        formData: (context, event) => {
+          if ('permissionIndex' in event && 'action' in event) {
+            const permissions = [...context.formData.permissions];
+            const actionIndex = permissions[event.permissionIndex].actions.indexOf(event.action);
+            if (actionIndex > -1) {
+              permissions[event.permissionIndex].actions.splice(actionIndex, 1);
+            }
+            return {
+              ...context.formData,
+              permissions
+            };
+          }
+          return context.formData;
+        }
+      }),
+      addResource: assign({
+        formData: (context, event) => {
+          if ('resource' in event) {
+            const permissions = [...context.formData.permissions];
+            // Only add the resource if it doesn't already exist
+            if (!permissions.some(p => p.resource === event.resource)) {
+              permissions.push({
+                resource: event.resource,
+                actions: []
+              });
+            }
+            return {
+              ...context.formData,
+              permissions
+            };
+          }
+          return context.formData;
+        }
+      }),
+      removeResource: assign({
+        formData: (context, event) => {
+          if ('resourceIndex' in event) {
+            const permissions = [...context.formData.permissions];
+            permissions.splice(event.resourceIndex, 1);
+            return {
+              ...context.formData,
+              permissions
+            };
+          }
+          return context.formData;
+        }
+      }),
+      createRole: async (context) => {
+        if (!context.formData.name) {
+          throw new Error('Role name is required');
+        }
+
+        // Validate and clean permissions
+        const validActions = ['create', 'read', 'update', 'delete'];
+        const validResources = ['users', 'pages', 'menus', 'roles', 'security'];
+        
+        const cleanedPermissions = context.formData.permissions
+          .filter(permission => validResources.includes(permission.resource))
+          .map(permission => ({
+            resource: permission.resource,
+            actions: permission.actions.filter(action => validActions.includes(action))
+          }));
+
+        const cleanedFormData = {
+          name: context.formData.name,
+          description: context.formData.description || '',
+          permissions: cleanedPermissions
+        };
+
+        console.log('Creating role with data:', cleanedFormData);
+        const response = await roleStore.createRole(cleanedFormData);
+        console.log('Role created:', response);
+        return response;
+      },
+      deleteRole: async (context) => {
+        if (!context.selectedRole?._id) {
+          throw new Error('No role selected for deletion');
+        }
+        return await roleStore.deleteRole(context.selectedRole._id);
+      },
+      setRoleUsers: assign({
+        roleUsers: (_, event) => {
+          if ('data' in event) {
+            return event.data.users || [];
+          }
+          return [];
+        }
+      }),
+      assignUsers: assign({
+        pendingUserIds: (_, event) => {
+          if ('userIds' in event) {
+            return event.userIds;
+          }
+          return [];
+        }
+      }),
+      removeUsers: assign({
+        pendingUserIds: (_, event) => {
+          if ('userIds' in event) {
+            return event.userIds;
+          }
+          return [];
+        }
       })
     },
     services: {
       fetchRoles: async () => {
-        return await roleStore.fetchRoles();
+        console.log('Fetching roles...');
+        const roles = await roleStore.fetchRoles();
+        console.log('Fetched roles:', roles);
+        return roles;
       },
       createRole: async (context) => {
         if (!context.formData.name) {
           throw new Error('Role name is required');
         }
-        return await roleStore.createRole(context.formData);
+
+        // Validate and clean permissions
+        const validActions = ['create', 'read', 'update', 'delete'];
+        const validResources = ['users', 'pages', 'menus', 'roles', 'security'];
+        
+        const cleanedPermissions = context.formData.permissions
+          .filter(permission => validResources.includes(permission.resource))
+          .map(permission => ({
+            resource: permission.resource,
+            actions: permission.actions.filter(action => validActions.includes(action))
+          }));
+
+        const cleanedFormData = {
+          name: context.formData.name,
+          description: context.formData.description || '',
+          permissions: cleanedPermissions
+        };
+
+        console.log('Creating role with data:', cleanedFormData);
+        const response = await roleStore.createRole(cleanedFormData);
+        console.log('Role created:', response);
+        return response;
       },
       updateRole: async (context) => {
         if (!context.selectedRole?._id) {
@@ -196,13 +468,51 @@ export const createRoleMachine = (initialContext: Partial<RoleContext> = {}) => 
         if (!context.formData.name) {
           throw new Error('Role name is required');
         }
-        return await roleStore.updateRole(context.selectedRole._id, context.formData);
+
+        // Validate and clean permissions
+        const validActions = ['create', 'read', 'update', 'delete'];
+        const validResources = ['users', 'pages', 'menus', 'roles', 'security'];
+        
+        const cleanedPermissions = context.formData.permissions
+          .filter(permission => validResources.includes(permission.resource))
+          .map(permission => ({
+            resource: permission.resource,
+            actions: permission.actions.filter(action => validActions.includes(action))
+          }));
+
+        const cleanedFormData = {
+          name: context.formData.name,
+          description: context.formData.description || '',
+          permissions: cleanedPermissions
+        };
+
+        console.log('Updating role with data:', cleanedFormData);
+        const response = await roleStore.updateRole(context.selectedRole._id, cleanedFormData);
+        console.log('Role updated:', response);
+        return response;
       },
       deleteRole: async (context) => {
         if (!context.selectedRole?._id) {
           throw new Error('No role selected for deletion');
         }
         return await roleStore.deleteRole(context.selectedRole._id);
+      },
+      fetchRoleUsers: async (context) => {
+        if (!context.selectedRole?._id) {
+          throw new Error('No role selected');
+        }
+        return await roleStore.getRoleUsers(context.selectedRole._id);
+      },
+      updateRoleUsers: async (context, event) => {
+        if (!context.selectedRole?._id) {
+          throw new Error('No role selected');
+        }
+        if (event.type === 'ASSIGN_USERS') {
+          return await roleStore.assignRoleToUsers(context.selectedRole._id, event.userIds);
+        } else if (event.type === 'REMOVE_USERS') {
+          return await roleStore.removeRoleFromUsers(context.selectedRole._id, event.userIds);
+        }
+        throw new Error('Invalid user operation');
       }
     }
   });

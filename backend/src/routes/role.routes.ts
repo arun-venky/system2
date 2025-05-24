@@ -1,5 +1,4 @@
 import express from 'express';
-import { body, param } from 'express-validator';
 import {
   getAllRoles,
   getRoleById,
@@ -10,13 +9,13 @@ import {
   getRoleUsers,
   assignRoleToUsers,
   removeRoleFromUsers,
-  duplicateRole,
   getRolePermissions,
   updateRolePermissions
 } from '../controllers/role.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
-import { isAdmin } from '../middleware/rbac.middleware.js';
+import { checkPermission, isAdmin } from '../middleware/rbac.middleware.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
+import { roleValidation } from '../validations/role.validation.js';
 
 export const roleRoutes = express.Router();
 
@@ -27,8 +26,8 @@ roleRoutes.get('/', verifyToken, isAdmin, getAllRoles);
 roleRoutes.get(
   '/:id',
   verifyToken,
-  param('id').isMongoId().withMessage('Invalid role ID'),
-  validateRequest,
+  validateRequest(roleValidation.getRoleById),
+  checkPermission('roles', 'read'),
   isAdmin,
   getRoleById
 );
@@ -37,10 +36,8 @@ roleRoutes.get(
 roleRoutes.get(
   '/:id/users',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.getRoleUsers),
+  checkPermission('roles', 'read'),
   isAdmin,
   getRoleUsers
 );
@@ -49,10 +46,8 @@ roleRoutes.get(
 roleRoutes.get(
   '/:id/permissions',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.getRolePermissions),
+  checkPermission('roles', 'read'),
   isAdmin,
   getRolePermissions
 );
@@ -61,13 +56,8 @@ roleRoutes.get(
 roleRoutes.post(
   '/',
   verifyToken,
-  [
-    body('name').trim().notEmpty().withMessage('Name is required'),
-    body('permissions').isArray().withMessage('Permissions must be an array'),
-    body('permissions.*.resource').notEmpty().withMessage('Resource is required'),
-    body('permissions.*.actions').isArray().withMessage('Actions must be an array')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.createRole),
+  checkPermission('roles', 'create'),
   isAdmin,
   createRole
 );
@@ -76,12 +66,8 @@ roleRoutes.post(
 roleRoutes.put(
   '/:id',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID'),
-    body('name').optional().trim(),
-    body('permissions').optional().isArray()
-  ],
-  validateRequest,
+  validateRequest(roleValidation.updateRole),
+  checkPermission('roles', 'update'),
   isAdmin,
   updateRole
 );
@@ -90,8 +76,8 @@ roleRoutes.put(
 roleRoutes.delete(
   '/:id',
   verifyToken,
-  param('id').isMongoId().withMessage('Invalid role ID'),
-  validateRequest,
+  validateRequest(roleValidation.deleteRole),
+  checkPermission('roles', 'delete'),
   isAdmin,
   deleteRole
 );
@@ -100,12 +86,7 @@ roleRoutes.delete(
 roleRoutes.post(
   '/manage',
   verifyToken,
-  [
-    body('operations').isArray().withMessage('Operations must be an array'),
-    body('operations.*.action').isIn(['create', 'update', 'delete']).withMessage('Invalid action'),
-    body('operations.*.data').optional()
-  ],
-  validateRequest,
+  validateRequest(roleValidation.manageRoles),
   isAdmin,
   manageRoles
 );
@@ -114,12 +95,7 @@ roleRoutes.post(
 roleRoutes.post(
   '/:id/users',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID'),
-    body('userIds').isArray().withMessage('User IDs must be an array'),
-    body('userIds.*').isMongoId().withMessage('Invalid user ID')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.assignRoleToUsers),
   isAdmin,
   assignRoleToUsers
 );
@@ -128,12 +104,7 @@ roleRoutes.post(
 roleRoutes.delete(
   '/:id/users',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID'),
-    body('userIds').isArray().withMessage('User IDs must be an array'),
-    body('userIds.*').isMongoId().withMessage('Invalid user ID')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.removeRoleFromUsers),
   isAdmin,
   removeRoleFromUsers
 );
@@ -142,26 +113,8 @@ roleRoutes.delete(
 roleRoutes.put(
   '/:id/permissions',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID'),
-    body('permissions').isArray().withMessage('Permissions must be an array'),
-    body('permissions.*.resource').notEmpty().withMessage('Resource is required'),
-    body('permissions.*.actions').isArray().withMessage('Actions must be an array')
-  ],
-  validateRequest,
+  validateRequest(roleValidation.updateRolePermissions),
+  checkPermission('roles', 'update'),
   isAdmin,
   updateRolePermissions
-);
-
-// Duplicate role (Admin only)
-roleRoutes.post(
-  '/:id/duplicate',
-  verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid role ID'),
-    body('name').trim().notEmpty().withMessage('New name is required')
-  ],
-  validateRequest,
-  isAdmin,
-  duplicateRole
 );

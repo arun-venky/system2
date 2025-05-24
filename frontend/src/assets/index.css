@@ -73,7 +73,19 @@
   }
 
   .management-list {
-    @apply divide-y divide-gray-200;
+    @apply divide-y divide-gray-200 max-h-[calc(100vh-300px)] overflow-y-auto;
+  }
+
+  .management-list::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .management-list::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+
+  .management-list::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
   }
 
   .management-list-item {

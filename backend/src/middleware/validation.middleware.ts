@@ -38,15 +38,17 @@ export const validateRequest = (validations: ValidationChain[]) => {
             message: error.msg,
           }))
         });
-        return res.status(400).json({
+
+        const errorResponse = {
           message: 'Validation error',
           errors: errors.array().map(error => ({
             field: error.type,
             message: error.msg,
-          })),
-        });
+          }))
+        };
+        return res.status(400).json(errorResponse);
       }
-
+      
       logger.info('Validation passed', {
         requestId,
         path: req.path

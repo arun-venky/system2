@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { Menu } from '@/store/models';
+import type { Menu } from '@/store/models';
 import { useMenuStore } from '../store/menu.store'
 import { useMachine } from '@xstate/vue';
 import { createMenuMachine } from '../machines/menuMachine';
@@ -8,15 +8,16 @@ export function useMenuManagement() {
   const menuStore = useMenuStore();
   const { state, send } = useMachine(createMenuMachine());
   const searchQuery = ref('');
-  const selectedMenus = ref<string[]>([]);
+  const selectedMenus = ref<string[]>([]);  
   const showBulkActions = ref(false);
 
   const filteredMenus = computed(() => {
     if (!searchQuery.value) return state.value.context.menus;
     const query = searchQuery.value.toLowerCase();
-    return state.value.context.menus.filter((menu: { name: string; description: string; }) => 
+    return state.value.context.menus.filter((menu: Menu) => 
       menu.name.toLowerCase().includes(query) ||
-      menu.description?.toLowerCase().includes(query)
+      menu.label?.toLowerCase().includes(query) ||
+      menu.pageElement?.name?.toLowerCase().includes(query)
     );
   });
 
@@ -31,8 +32,18 @@ export function useMenuManagement() {
     raiseEvent('EDIT', { id: menu._id });
   };
 
-  const deleteMenu = (menu: Menu) => {
-    raiseEvent('DELETE', { id: menu._id });
+  const deleteMenu = async (menu: Menu) => {
+    // const confirmed = await showConfirmDialog({
+    //   title: 'Delete Menu',
+    //   message: `Are you sure you want to delete "${menu.name}"?`,
+    //   confirmText: 'Delete',
+    //   cancelText: 'Cancel',
+    //   variant: 'danger'
+    // });
+  
+    // if (confirmed) {
+      raiseEvent('DELETE', { id: menu._id });
+    // }
   };
 
   const confirmDelete = () => {
@@ -54,11 +65,11 @@ export function useMenuManagement() {
       console.error('Failed to delete menus:', error);
     }
   };
-
+  
   return {
     state,
     searchQuery,
-    selectedMenus,
+    selectedMenus,    
     showBulkActions,
     filteredMenus,
     isCurrentState,
@@ -69,4 +80,4 @@ export function useMenuManagement() {
     saveMenu,
     bulkDelete
   };
-} 
+}

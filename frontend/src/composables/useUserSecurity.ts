@@ -1,8 +1,9 @@
-import { User } from '@/store/models';
+import type { User } from '@/store/models';
 import { useUserStore } from '../store/user.store';
 
 export function useUserSecurity() {
   const userStore = useUserStore();
+  
   const verifyEmail = async (user: User) => {
     try {
       await userStore.verifyEmail(user._id);

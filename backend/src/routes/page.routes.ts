@@ -2,21 +2,17 @@ import express from 'express';
 import {
   getAllPages,
   getPageById,
-  getPageBySlug,
   createPage,
   updatePage,
   deletePage,
-  managePages,
-  publishPage,
-  unpublishPage,
-  getPageVersions,
-  restorePageVersion,
-  getPageDraft,
-  savePageDraft,
-  deletePageDraft,
-  duplicatePage,
-  movePage,
-  getPageTree,
+  getPageElementsByPageId,
+  reorderPages,
+  getAvailableResources,
+  bulkDeletePageElements,
+  createPageElement,
+  deletePageElement,
+  getAllPageElements,
+  updatePageElement
 } from '../controllers/page.controller.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
@@ -29,125 +25,85 @@ export const pageRoutes = express.Router();
 pageRoutes.get('/', verifyToken, getAllPages);
 
 // Get page by ID
-pageRoutes.get('/:id', verifyToken, getPageById);
-
-// Get page by slug
-pageRoutes.get('/slug/:slug', verifyToken, getPageBySlug);
+pageRoutes.get('/:id', verifyToken, validateRequest(pageValidation.getPageById), getPageById);
 
 // Create page
-pageRoutes.post(
-  '/',
-  verifyToken,
-  validateRequest(pageValidation.createPage),
+pageRoutes.post('/', 
+  verifyToken, 
   checkPermission('pages', 'create'),
+  validateRequest(pageValidation.createPage), 
   createPage
 );
 
 // Update page
-pageRoutes.put(
-  '/:id',
-  verifyToken,
-  validateRequest(pageValidation.updatePage),
+pageRoutes.put('/:id', 
+  verifyToken, 
   checkPermission('pages', 'update'),
+  validateRequest(pageValidation.updatePage), 
   updatePage
 );
 
 // Delete page
-pageRoutes.delete(
-  '/:id',
-  verifyToken,
+pageRoutes.delete('/:id', 
+  verifyToken, 
   checkPermission('pages', 'delete'),
+  validateRequest(pageValidation.deletePage), 
   deletePage
 );
 
-// Manage pages (bulk operations)
-pageRoutes.post(
-  '/manage',
-  verifyToken,
-  validateRequest(pageValidation.managePages),
+// Reorder pages
+pageRoutes.post('/reorder', 
+  verifyToken, 
   checkPermission('pages', 'update'),
-  managePages
+  validateRequest(pageValidation.reorderPages),
+  reorderPages
 );
 
-// Publish page
-pageRoutes.post(
-  '/:id/publish',
-  verifyToken,
-  checkPermission('pages', 'update'),
-  publishPage
-);
-
-// Unpublish page
-pageRoutes.post(
-  '/:id/unpublish',
-  verifyToken,
-  checkPermission('pages', 'update'),
-  unpublishPage
-);
-
-// Get page versions
-pageRoutes.get(
-  '/:id/versions',
-  verifyToken,
+// Get available resources
+pageRoutes.get('/resources/available', 
+  verifyToken, 
   checkPermission('pages', 'read'),
-  getPageVersions
+  validateRequest(pageValidation.getAvailableResources),
+  getAvailableResources
 );
 
-// Restore page version
-pageRoutes.post(
-  '/:id/versions/:versionId/restore',
-  verifyToken,
-  checkPermission('pages', 'update'),
-  restorePageVersion
-);
+// Get page elements by page ID
+pageRoutes.get('/:id/elements', 
+  verifyToken, 
+  validateRequest(pageValidation.getPageElementsByPageId),
+  getPageElementsByPageId
+); 
 
-// Get page draft
-pageRoutes.get(
-  '/:id/draft',
-  verifyToken,
-  checkPermission('pages', 'read'),
-  getPageDraft
-);
-
-// Save page draft
-pageRoutes.post(
-  '/:id/draft',
-  verifyToken,
-  validateRequest(pageValidation.saveDraft),
-  checkPermission('pages', 'update'),
-  savePageDraft
-);
-
-// Delete page draft
-pageRoutes.delete(
-  '/:id/draft',
-  verifyToken,
-  checkPermission('pages', 'update'),
-  deletePageDraft
-);
-
-// Duplicate page
-pageRoutes.post(
-  '/:id/duplicate',
-  verifyToken,
-  validateRequest(pageValidation.duplicatePage),
+// Create page element
+pageRoutes.post('/:id/elements', 
+  verifyToken, 
   checkPermission('pages', 'create'),
-  duplicatePage
+  validateRequest(pageValidation.createPageElement),
+  createPageElement
 );
 
-// Move page
-pageRoutes.post(
-  '/:id/move',
-  verifyToken,
-  validateRequest(pageValidation.movePage),
+// Update page element
+pageRoutes.put('/:id/elements/:elementId', 
+  verifyToken, 
   checkPermission('pages', 'update'),
-  movePage
+  validateRequest(pageValidation.updatePageElement),
+  updatePageElement
 );
 
-// Get page tree
-pageRoutes.get(
-  '/tree',
-  verifyToken,
-  checkPermission('pages', 'read'),
-  getPageTree
+// Delete page element
+pageRoutes.delete('/:id/elements/:elementId', 
+  verifyToken, 
+  checkPermission('pages', 'delete'),
+  validateRequest(pageValidation.deletePageElement),
+  deletePageElement
 );
+
+// Bulk delete page elements
+pageRoutes.delete('/:id/elements/bulk', 
+  verifyToken, 
+  checkPermission('pages', 'delete'),
+  validateRequest(pageValidation.bulkDeletePageElements),
+  bulkDeletePageElements
+);
+
+

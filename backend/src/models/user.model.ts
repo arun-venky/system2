@@ -8,8 +8,9 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  role: IRole;
+  role: mongoose.Types.ObjectId;  
   isVerified: boolean;
+  twoFactorEnabled: boolean;
   verificationToken?: string;
   verificationTokenExpiry?: Date;
   resetToken?: string;
@@ -60,6 +61,10 @@ const UserSchema: Schema = new Schema(
       type: Boolean,
       default: false,
     },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
     verificationToken: {
       type: String,
       default: undefined,
@@ -98,6 +103,9 @@ const UserSchema: Schema = new Schema(
   }
 );
 
+UserSchema.set('toObject', { virtuals: true });
+UserSchema.set('toJSON', { virtuals: true });
+
 // Hash password before saving
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
@@ -132,10 +140,10 @@ UserSchema.methods.generateResetToken = async function (): Promise<string> {
 
 // Method to generate email verification token
 UserSchema.methods.generateVerificationToken = async function (): Promise<string> {
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-  this.verificationToken = verificationToken;
-  this.verificationTokenExpiry = new Date(Date.now() + 24 * 3600000); // 24 hours
-  return verificationToken;
+  const token = crypto.randomBytes(32).toString('hex');
+  this.verificationToken = token;
+  this.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  return token;
 };
 
 // Method to set tokens

@@ -1,5 +1,4 @@
 import express from 'express';
-import { body } from 'express-validator';
 import { 
   signup, 
   login, 
@@ -10,12 +9,13 @@ import {
   verifyEmail,
   resendVerificationEmail,
   changePassword,
-  updateProfile,
-  verify
+  verify,
+  refreshSession
 } from '../controllers/auth.controller.js';
 import { verifyToken, verifyRefreshToken } from '../middleware/auth.middleware.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { logger } from '../utils/logger.js';
+import { authValidation } from '../validations/auth.validation.js';
 
 export const authRoutes = express.Router();
 
@@ -37,16 +37,7 @@ authRoutes.use((req, res, next) => {
 // Public routes
 // Login route with validation
 authRoutes.post(
-  '/login',
-  [
-    body('email')
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail(),
-    body('password')
-      .notEmpty()
-      .withMessage('Password is required')
-  ],
+  '/login',  
   (req: { body: any; }, res: any, next: () => void) => {
     logger.info('Login validation middleware', {
       body: req.body,
@@ -54,7 +45,7 @@ authRoutes.post(
     });
     next();
   },
-  //validateRequest,
+  validateRequest(authValidation.login),
   (req: { body: any; }, res: any, next: () => void) => {
     logger.info('Login controller about to be called', {
       body: req.body
@@ -66,116 +57,73 @@ authRoutes.post(
 
 // Signup route with validation
 authRoutes.post(
-  '/signup',
-  [
-    body('username')
-      .trim()
-      .isLength({ min: 3, max: 30 })
-      .withMessage('Username must be between 3 and 30 characters'),
-    body('email')
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail(),
-    body('password')
-      .isLength({ min: 6 })
-      .withMessage('Password must be at least 6 characters'),    
-  ],
-  validateRequest,
+  '/signup',  
+  validateRequest(authValidation.signUp),
   signup
 );
 
 // Logout route
-authRoutes.post('/logout', logout);
+authRoutes.post(
+  '/logout', 
+  logout
+);
 
 // Protected routes
 // verify token route
-authRoutes.post('/verify', verify);
+authRoutes.post(
+  '/verify', 
+  verify
+);
 
 // Refresh token route
-authRoutes.post('/refresh', verifyRefreshToken, refreshToken);
+authRoutes.post(
+  '/refresh', 
+  verifyRefreshToken, 
+  refreshToken
+);
 
 // Password reset routes
 authRoutes.post(
-  '/forgot-password',
-  [
-    body('email')
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail(),    
-  ],
-  validateRequest,
+  '/forgot-password',  
+  validateRequest(authValidation.forgotPassword),
   requestPasswordReset
 );
 
 // Reset password with token
 authRoutes.post(
-  '/reset-password',
-  [
-    body('token').notEmpty().withMessage('Reset token is required'),
-    body('password')
-      .isLength({ min: 6 })
-      .withMessage('Password must be at least 6 characters'),    
-  ],
-  validateRequest,
+  '/reset-password',  
+  validateRequest(authValidation.resetPassword),
   resetPassword
 );
 
 // Change password (authenticated)
 authRoutes.post(
   '/change-password',
-  verifyToken,
-  [
-    body('currentPassword').notEmpty().withMessage('Current password is required'),
-    body('newPassword')
-      .isLength({ min: 6 })
-      .withMessage('New password must be at least 6 characters')
-  ],
-  validateRequest,
+  verifyToken, 
+  validateRequest(authValidation.changePassword),
   changePassword
-);
-
-// Update profile (authenticated)
-authRoutes.put(
-  '/profile',
-  verifyToken,
-  [
-    body('username')
-      .optional()
-      .trim()
-      .isLength({ min: 3, max: 30 })
-      .withMessage('Username must be between 3 and 30 characters'),
-    body('email')
-      .optional()
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail()
-  ],
-  validateRequest,
-  updateProfile
 );
 
 // Email verification routes
 // Verify email with token
 authRoutes.get(
-  '/verify-email',
-  [
-    body('token').notEmpty().withMessage('Verification token is required'),    
-  ],
-  validateRequest,
+  '/verify-email', 
+  validateRequest(authValidation.verifyEmail),
   verifyEmail
 );
 
 // Resend verification email
 authRoutes.post(
-  '/resend-verification-email',
-  [
-    body('email')
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail()
-  ],
-  validateRequest,
+  '/resend-verification-email',  
+  validateRequest(authValidation.resendVerificationEmail),
   resendVerificationEmail
+);
+
+// Refresh session
+authRoutes.post(
+  '/refresh-session',
+  verifyToken,
+  refreshSession
 );
 
 export default authRoutes;

@@ -1,53 +1,52 @@
 import express from 'express';
-import { body, param } from 'express-validator';
-import { getAllUsers, getUserById, updateUser, deleteUser } from '../controllers/user.controller.js';
+import {
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserRoles,
+  assignRoles,
+  removeRoles,
+  bulkAssignRoles
+} from '../controllers/user.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
-import { checkPermission, isSelfOrAdmin, isAdmin } from '../middleware/rbac.middleware.js';
+import { checkPermission, isAdmin } from '../middleware/rbac.middleware.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
+import { userValidation } from '../validations/user.validation.js';
 
 export const userRoutes = express.Router();
 
 // Get all users (Admin only)
-userRoutes.get(
-  '/',
-  verifyToken,
-  checkPermission('users', 'read'),
-  getAllUsers
-);
+userRoutes.get('/', verifyToken, isAdmin, getAllUsers);
 
-// Get user by ID (self or Admin)
+// Get user by ID (Admin only)
 userRoutes.get(
   '/:id',
   verifyToken,
-  param('id').isMongoId().withMessage('Invalid user ID'),
-  validateRequest,
-  isSelfOrAdmin,
+  validateRequest(userValidation.getUserById),
+  checkPermission('users', 'read'),
+  isAdmin,
   getUserById
 );
 
-// Update user (self or Admin)
+// Create user (Admin only)
+userRoutes.post(
+  '/',
+  verifyToken,
+  validateRequest(userValidation.createUser),
+  checkPermission('users', 'create'),
+  isAdmin,
+  createUser
+);
+
+// Update user (Admin only)
 userRoutes.put(
   '/:id',
   verifyToken,
-  [
-    param('id').isMongoId().withMessage('Invalid user ID'),
-    body('username')
-      .optional()
-      .trim()
-      .isLength({ min: 3, max: 30 })
-      .withMessage('Username must be between 3 and 30 characters'),
-    body('email')
-      .optional()
-      .isEmail()
-      .withMessage('Must be a valid email address')
-      .normalizeEmail(),
-    body('password')
-      .optional()
-      .isLength({ min: 6 })
-      .withMessage('Password must be at least 6 characters'),   
-  ],
-  validateRequest,
-  isSelfOrAdmin,
+  validateRequest(userValidation.updateUser),
+  checkPermission('users', 'update'),
+  isAdmin,
   updateUser
 );
 
@@ -55,8 +54,48 @@ userRoutes.put(
 userRoutes.delete(
   '/:id',
   verifyToken,
-  param('id').isMongoId().withMessage('Invalid user ID'),
-  validateRequest,
+  validateRequest(userValidation.deleteUser),
+  checkPermission('users', 'delete'),
   isAdmin,
   deleteUser
+);
+
+// Get user roles (Admin only)
+userRoutes.get(
+  '/:id/roles',
+  verifyToken,
+  validateRequest(userValidation.getUserRoles),
+  checkPermission('users', 'read'),
+  isAdmin,
+  getUserRoles
+);
+
+// Assign roles to user (Admin only)
+userRoutes.post(
+  '/:id/roles',
+  verifyToken,
+  validateRequest(userValidation.assignRoles),
+  checkPermission('users', 'update'),
+  isAdmin,
+  assignRoles
+);
+
+// Remove roles from user (Admin only)
+userRoutes.delete(
+  '/:id/roles',
+  verifyToken,
+  validateRequest(userValidation.removeRoles),
+  checkPermission('users', 'update'),
+  isAdmin,
+  removeRoles
+);
+
+// Bulk assign roles to users (Admin only)
+userRoutes.post(
+  '/bulk/roles',
+  verifyToken,
+  validateRequest(userValidation.bulkAssignRoles),
+  checkPermission('users', 'update'),
+  isAdmin,
+  bulkAssignRoles
 );

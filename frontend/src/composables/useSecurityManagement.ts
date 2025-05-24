@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { SecuritySettings, AuditLog, AuditLogFilters } from '@/store/models';
+import type { SecuritySettings, AuditLog, AuditLogFilters } from '@/store/models';
 import { useMachine } from '@xstate/vue';
 import { createSecurityMachine } from '../machines/securityMachine';
 
@@ -91,6 +91,7 @@ export function useSecurityManagement() {
   // Audit Log Management
   const openAuditLogModal = async () => {
     try {
+      console.log('openAuditLogModal', auditLogFilters.value);
       send({ type: 'GET_AUDIT_LOGS', filters: auditLogFilters.value });
       // Wait for the state to update
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -98,6 +99,7 @@ export function useSecurityManagement() {
         throw new Error(state.value.context.errorMessage);
       }
       auditLogs.value = state.value.context.auditLogs || [];
+      console.log('auditLogs', auditLogs.value);
       showAuditLogModal.value = true;
     } catch (error: any) {
       console.error('Failed to fetch audit logs:', error);

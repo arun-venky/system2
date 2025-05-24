@@ -1,18 +1,10 @@
-import { PageVersion } from './page-version.types';
-import { PageDraft } from './page-draft.types';
+import type { PageElement } from "./page-element.types";
 
 export interface Page {
+  selectedPageElement: any;
   _id: string;
-  title: string;
-  content: string;
-  slug: string;
-  isPublished: boolean;
-  publishedAt?: string;
-  publishedBy?: string;
-  draft?: PageDraft;
-  versions: PageVersion[];
-  parentId?: string;
-  order: number;
-  createdAt: string;
-  updatedAt: string;
-} 
+  name: string;
+  description?: string;
+  displayOrder: number;
+  pageElements: PageElement[];
+}

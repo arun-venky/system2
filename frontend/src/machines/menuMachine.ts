@@ -1,4 +1,4 @@
-import { MenuItem, MenuContext, MenuResponse } from '@/store/models';
+import type { MenuContext, MenuResponse, MenuFormData, Menu, Role } from '@/store/models';
 import { useMenuStore } from '../store/menu.store'
 import { createMachine, assign } from 'xstate'
 
@@ -8,7 +8,7 @@ export type MenuEvent =
   | { type: 'CREATE' }
   | { type: 'EDIT'; id: string }
   | { type: 'DELETE'; id: string }
-  | { type: 'SAVE'; data: any }
+  | { type: 'SAVE'; data: MenuFormData }
   | { type: 'CANCEL' }
   | { type: 'RETRY' }
   | { type: 'ADD_ITEM' }
@@ -31,135 +31,170 @@ export const createMenuMachine = (initialContext: Partial<MenuContext> = {}) => 
   const menuStore = useMenuStore();
   
   return createMachine<MenuContext, MenuEvent, MenuState>({
-    id: 'menuManagement',
-    initial: 'idle',
-    context: {
-      menus: [],
-      roles: [],
-      selectedMenu: null,
-      errorMessage: null,
-      isLoading: false,
-      formData: { 
-        name: '', 
-        description: '',
-        isActive: false,
-        isPublic: false,
-        items: [] 
+      id: 'menuManagement',
+      initial: 'idle',
+      context: {
+        menus: [],
+        roles: [],
+        selectedMenu: null,
+        errorMessage: null,
+        isLoading: false,
+        formData: { 
+          name: '', 
+          label: '',
+          icon: '',
+          slug: '',
+          displayOrder: 0
+        },
+        ...initialContext
       },
-      menuItems: [],
-      ...initialContext
-    },
-    states: {
-      idle: {       
-        on: {
-          FETCH: { target: 'loading' },
-          CREATE: { target: 'creating' },
-          EDIT: { 
-            target: 'editing',
-            actions: ['selectMenu']
-          },
-          DELETE: { 
-            target: 'deleting',
-            actions: ['selectMenu']
+      states: {
+        idle: {       
+          on: {
+            FETCH: { target: 'loading' },
+            CREATE: { target: 'creating' },
+            EDIT: { 
+              target: 'editing',
+              actions: ['selectMenu']
+            },
+            DELETE: { 
+              target: 'deleting',
+              actions: ['selectMenu']
+            }
           }
-        }
-      },
-      loading: {
-        entry: assign({ isLoading: true }),
-        invoke: {
-          src: 'fetchData',
-          onDone: {
-            target: 'idle',
-            actions: ['setData']
-          },
-          onError: {
-            target: 'error',
-            actions: ['setError']
+        },
+        loading: {
+          entry: assign({ isLoading: true }),
+          invoke: {
+            src: 'fetchData',
+            onDone: {
+              target: 'idle',
+              actions: ['setData']
+            },
+            onError: {
+              target: 'error',
+              actions: ['setError']
+            }
           }
-        }
-      },
-      creating: {
-        tags: ['creating'],
-        entry: assign({ 
-          formData: { 
-            name: '', 
-            description: '',
-            isActive: false,
-            isPublic: false,
-            items: [] 
-          },
-          selectedMenu: null 
-        }),
-        on: {
-          SAVE: { 
-            target: 'loading',
-            actions: ['createMenu']
-          },
-          CANCEL: { target: 'idle' },
-          ADD_ITEM: {
-            actions: ['addMenuItem']
-          },
-          REMOVE_ITEM: {
-            actions: ['removeMenuItem']
+        },
+        creating: {
+          tags: ['creating'],
+          entry: assign({ 
+            formData: { 
+              name: '', 
+              label: '',
+              icon: '',
+              slug: '',
+              displayOrder: 0
+            },
+            selectedMenu: null 
+          }),
+          on: {
+            SAVE: { 
+              target: 'loading',
+              actions: ['createMenu']
+            },
+            CANCEL: { target: 'idle' }
           }
-        }
-      },
-      editing: {
-        entry: assign({
-          formData: (context) => ({ 
-            name: context.selectedMenu?.name || '',
-            items: context.selectedMenu?.items || [],
-            description: context.selectedMenu?.description || '',
-            isActive: context.selectedMenu?.isActive || false,
-            isPublic: context.selectedMenu?.isPublic || false
-          })
-        }),
-        on: {
-          SAVE: { 
-            target: 'loading',
-            actions: ['updateMenu']
-          },
-          CANCEL: { target: 'idle' },
-          ADD_ITEM: {
-            actions: ['addMenuItem']
-          },
-          REMOVE_ITEM: {
-            actions: ['removeMenuItem']
+        },
+        editing: {
+          tags: ['editing'],
+          entry: assign({
+            formData: (context) => {
+              if (context.selectedMenu) {
+                return {
+                  name: context.selectedMenu.name,
+                  label: context.selectedMenu.label,
+                  icon: context.selectedMenu.icon,
+                  slug: context.selectedMenu.slug,
+                  displayOrder: context.selectedMenu.displayOrder,
+                  parent: context.selectedMenu.parent?._id,
+                  pageElement: context.selectedMenu.pageElement?._id
+                };
+              }
+              return context.formData;
+            }
+          }),
+          on: {
+            SAVE: { 
+              target: 'loading',
+              actions: ['updateMenu']
+            },
+            CANCEL: { target: 'idle' }
           }
-        }
-      },
-      deleting: {
-        invoke: {
-          src: 'deleteMenu',
-          onDone: {
-            target: 'loading',
-            actions: ['removeMenu']
-          },
-          onError: {
-            target: 'error',
-            actions: ['setError']
+        },
+        deleting: {
+          invoke: {
+            src: 'deleteMenu',
+            onDone: {
+              target: 'idle',
+              actions: ['removeMenu']
+            },
+            onError: {
+              target: 'error',
+              actions: ['setError']
+            }
           }
-        }
-      },
-      error: {
-        on: {
-          RETRY: { target: 'loading' },
-          CANCEL: { target: 'idle' }
+        },
+        error: {
+          on: {
+            RETRY: { target: 'loading' },
+            CANCEL: { target: 'idle' }
+          }
         }
       }
-    }
-  }, {
+    }, {    
+    services: {
+      fetchData: async () => {
+        try {
+          return await menuStore.fetchMenus()
+        } catch (error) {
+          console.error('Failed to fetch menus:', error)
+          throw error
+        }
+      },
+      deleteMenu: async (context) => {
+        if (!context.selectedMenu?._id) {
+          throw new Error('No menu selected')
+        }
+        try {
+          return await menuStore.deleteMenu(context.selectedMenu._id)
+        } catch (error) {
+          console.error('Failed to delete menu:', error)
+          throw error
+        }
+      },
+      createMenu: async (context) => {
+        try {
+          return await menuStore.createMenu(context.formData as Partial<Menu>)
+        } catch (error) {
+          console.error('Failed to create menu:', error)
+          throw error
+        }
+      },
+      updateMenu: async (context) => {
+        if (!context.selectedMenu?._id) {
+          throw new Error('No menu selected')
+        }
+        try {
+          return await menuStore.updateMenu(context.selectedMenu._id, context.formData as Partial<Menu>) 
+        } catch (error) {
+          console.error('Failed to update menu:', error)
+          throw error
+        }
+      }
+    },
     actions: {
       setData: assign({
         menus: (_, event) => {
-          if ('data' in event) {
-            return event.data.menus || []
+          if ('data' in event && 'menus' in event.data) {
+            return event.data.menus as Menu[] || []
           }
           return []
         },
         roles: (_, event) => {
-          if ('data' in event) {
-            return event.data.roles || []
+          if ('data' in event && 'roles' in event.data) {
+            return event.data.roles as unknown as Role[] || []
           }
           return []
         },
@@ -183,34 +218,9 @@ export const createMenuMachine = (initialContext: Partial<MenuContext> = {}) => 
         },
         selectedMenu: (_) => null
       }),
-      addMenuItem: assign({
-        formData: (context) => {
-          const newItem: MenuItem = {
-            label: '',
-            url: '',
-            roles: [],
-            order: context.formData.items.length
-          }
-          return {
-            ...context.formData,
-            items: [...context.formData.items, newItem]
-          }
-        }
-      }),
-      removeMenuItem: assign({
-        formData: (context, event) => {
-          if ('index' in event) {
-            return {
-              ...context.formData,
-              items: context.formData.items.filter((_: MenuItem, index: number) => index !== event.index)
-            }
-          }
-          return context.formData
-        }
-      }),
       setError: assign({
         errorMessage: (_, event) => {
-          if ('data' in event) {
+          if ('data' in event && 'message' in event.data) {
             const error = event.data.message || 'Operation failed'
             console.error('Menu Error:', error)
             return error
@@ -219,36 +229,7 @@ export const createMenuMachine = (initialContext: Partial<MenuContext> = {}) => 
           return 'Operation failed'
         },
         isLoading: (_) => false
-      }),
-      createMenu: async (context) => {
-        return await menuStore.createMenu(context.formData)
-      },
-      updateMenu: async (context) => {
-        if (context.selectedMenu?._id) {
-          return await menuStore.updateMenu(context.selectedMenu._id, context.formData)
-        }
-        throw new Error('No menu selected')
-      }
-    },
-    services: {
-      fetchData: async () => {
-        return await menuStore.fetchMenus()
-      },
-      deleteMenu: async (context) => {
-        if (context.selectedMenu?._id) {
-          return await menuStore.deleteMenu(context.selectedMenu._id)
-        }
-        throw new Error('No menu selected')
-      },
-      createMenu: async (context) => {
-        return await menuStore.createMenu(context.formData)
-      },
-      updateMenu: async (context) => {
-        if (context.selectedMenu?._id) {
-          return await menuStore.updateMenu(context.selectedMenu._id, context.formData)
-        }
-        throw new Error('No menu selected')
-      }
+      })
     }
-  })
+  });
 }

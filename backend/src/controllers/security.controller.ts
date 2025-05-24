@@ -33,7 +33,14 @@ interface SecuritySettings {
 
 // Get audit logs controller
 export const getAuditLogs = async (req: Request, res: Response) => {
-  try {
+  const requestId = Math.random().toString(36).substring(7);
+  try {    
+    logger.info('getAuditLogs controller started', {
+      requestId,
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
+    
     const {
       page = 1,
       limit = 10,
