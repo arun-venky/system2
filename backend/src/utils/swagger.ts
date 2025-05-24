@@ -11,6 +11,11 @@ export const swaggerDocs = {
       description: 'Development server',
     },
   ],
+  security: [
+    {
+      BearerAuth: []
+    }
+  ],
   components: {
     securitySchemes: {
       BearerAuth: {
@@ -75,6 +80,18 @@ export const swaggerDocs = {
           updatedAt: { type: 'string', format: 'date-time' },
         },
       },
+      PageElement: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          page: { type: 'string', format: 'ObjectId', description: 'Reference to Page schema' },
+          type: { type: 'string', enum: ['text', 'image', 'video', 'link'] }, 
+          content: { type: 'string' },
+          position: { type: 'number' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
       Menu: {
         type: 'object',
         properties: {
@@ -128,6 +145,7 @@ export const swaggerDocs = {
     '/auth/signup': {
       post: {
         tags: ['Authentication'],
+        security: [], 
         summary: 'Register a new user',
         requestBody: {
           required: true,
@@ -168,6 +186,7 @@ export const swaggerDocs = {
     '/auth/login': {
       post: {
         tags: ['Authentication'],
+        security: [], 
         summary: 'Log in a user',
         requestBody: {
           required: true,
@@ -207,6 +226,7 @@ export const swaggerDocs = {
     '/auth/refresh-token': {
       post: {
         tags: ['Authentication'],
+        security: [{ BearerAuth: [] }],
         summary: 'Refresh access token',
         requestBody: {
           required: true,
@@ -244,7 +264,7 @@ export const swaggerDocs = {
     },
     '/users/{id}': {
       get: {
-        tags: ['Users'],
+        tags: ['Users'],        
         summary: 'Get user by ID',
         security: [{ BearerAuth: [] }],
         parameters: [
@@ -436,67 +456,7 @@ export const swaggerDocs = {
           200: { description: 'Menu found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Menu' } } } }
         }
       }
-    },
-    '/menus/{id}/duplicate': {
-      post: {
-        tags: ['Menus'],
-        summary: 'Duplicate menu (Admin only)',
-        security: [{ BearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { newName: { type: 'string' } } } } }
-        },
-        responses: {
-          201: { description: 'Menu duplicated', content: { 'application/json': { schema: { $ref: '#/components/schemas/Menu' } } } }
-        }
-      }
-    },
-    '/menus/{id}/items': {
-      post: {
-        tags: ['Menus'],
-        summary: 'Add menu item (Admin only)',
-        security: [{ BearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { label: { type: 'string' }, url: { type: 'string' }, roles: { type: 'array', items: { type: 'string' } } } } } }
-        },
-        responses: {
-          201: { description: 'Menu item added', content: { 'application/json': { schema: { type: 'object' } } } }
-        }
-      }
-    },
-    '/menus/{id}/items/{itemId}': {
-      put: {
-        tags: ['Menus'],
-        summary: 'Update menu item (Admin only)',
-        security: [{ BearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'itemId', in: 'path', required: true, schema: { type: 'string' } }
-        ],
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { label: { type: 'string' }, url: { type: 'string' }, roles: { type: 'array', items: { type: 'string' } } } } } }
-        },
-        responses: {
-          200: { description: 'Menu item updated', content: { 'application/json': { schema: { type: 'object' } } } }
-        }
-      },
-      delete: {
-        tags: ['Menus'],
-        summary: 'Delete menu item (Admin only)',
-        security: [{ BearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'itemId', in: 'path', required: true, schema: { type: 'string' } }
-        ],
-        responses: {
-          204: { description: 'Menu item deleted' }
-        }
-      }
-    },
+    },   
     '/menus/{id}/reorder': {
       put: {
         tags: ['Menus'],
@@ -566,42 +526,7 @@ export const swaggerDocs = {
           204: { description: 'Page deleted' }
         }
       }
-    },
-    '/pages/slug/{slug}': {
-      get: {
-        tags: ['Pages'],
-        summary: 'Get page by slug',
-        security: [{ BearerAuth: [] }],
-        parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: {
-          200: { description: 'Page found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Page' } } } }
-        }
-      }
-    },
-    '/pages/manage': {
-      post: {
-        tags: ['Pages'],
-        summary: 'Manage pages (bulk operations)',
-        security: [{ BearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { type: 'object' } } }
-        },
-        responses: {
-          200: { description: 'Bulk operation result', content: { 'application/json': { schema: { type: 'object' } } } }
-        }
-      }
-    },
-    '/pages/tree': {
-      get: {
-        tags: ['Pages'],
-        summary: 'Get page tree',
-        security: [{ BearerAuth: [] }],
-        responses: {
-          200: { description: 'Page tree', content: { 'application/json': { schema: { type: 'object' } } } }
-        }
-      }
-    },
+    },   
     '/security/logs': {
       get: {
         tags: ['Security'],
@@ -641,7 +566,91 @@ export const swaggerDocs = {
         responses: {
           200: { description: 'Security settings updated', content: { 'application/json': { schema: { type: 'object' } } } }
         }
+      },
+    },
+    '/pages/{id}/elements': {
+      get: {
+        tags: ['Pages'],
+        summary: 'Get page elements by page ID',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Page elements', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/PageElement' } } } } }
+        }
+      },
+      post: {
+        tags: ['Pages'],
+        summary: 'Create page element',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/PageElement' } } }
+        },
+        responses: {
+          201: { description: 'Page element created', content: { 'application/json': { schema: { $ref: '#/components/schemas/PageElement' } } } }
+        }
       }
     },
-  },
+    '/pages/{id}/elements/{elementId}': {
+      put: {
+        tags: ['Pages'],
+        summary: 'Update page element',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'elementId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/PageElement' } } }
+        },
+        responses: {
+          200: { description: 'Page element updated', content: { 'application/json': { schema: { $ref: '#/components/schemas/PageElement' } } } }
+        }
+      },
+      delete: {
+        tags: ['Pages'],
+        summary: 'Delete page element',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'elementId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          204: { description: 'Page element deleted' }
+        }
+      }
+    },
+    '/pages/{id}/elements/manage': {
+      post: {
+        tags: ['Pages'],
+        summary: 'Manage page elements (bulk operations)',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object' } } }
+        },
+        responses: {
+          200: { description: 'Bulk operation result', content: { 'application/json': { schema: { type: 'object' } } } }
+        }
+      }      
+    },
+    '/pages/{id}/elements/reorder': {
+      put: {
+        tags: ['Pages'],
+        summary: 'Reorder page elements',
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', properties: { elementIds: { type: 'array', items: { type: 'string' } } } } } }
+        },
+        responses: {
+          200: { description: 'Page elements reordered', content: { 'application/json': { schema: { type: 'object' } } } }  
+        }
+      }
+    },        
+  }
 };

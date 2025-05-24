@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
-import { SecuritySettings, SecurityState, AuditLog, AuditLogFilters } from '@/store/models';
-import { securityService } from './services/security.service';
+import type { SecuritySettings, SecurityState } from '@/store/models';
+import type { AuditLog, AuditLogFilters } from '@/store/models/security/audit-log.types';
+import api from '@/utils/api';
 
 export const useSecurityStore = defineStore('security', {
   state: (): SecurityState => ({
@@ -25,14 +26,16 @@ export const useSecurityStore = defineStore('security', {
       this.isLoading = true;
       this.errorMessage = null;
       try {
-        const response = await securityService.getAuditLogs(filters);
-        this.auditLogs = response.logs;
-        this.pagination = {
-          page: response.page,
-          limit: response.limit,
-          totalPages: response.totalPages,
-          totalCount: response.count
-        };
+        const response = await api.get('/security/logs', { params: filters });
+        if (response.data) {
+          this.auditLogs = response.data.logs;
+          this.pagination = {
+            page: response.data.page,
+            limit: response.data.limit,
+            totalPages: response.data.totalPages,
+            totalCount: response.data.count
+          };
+        }
         return response;
       } catch (error: any) {
         if (error.code === 'ECONNABORTED') {
@@ -52,8 +55,10 @@ export const useSecurityStore = defineStore('security', {
       this.isLoading = true;
       this.errorMessage = null;
       try {
-        const response = await securityService.getSecuritySettings();
-        this.settings = response;
+        const response = await api.get('/security/settings');
+        if (response.data) {
+          this.settings = response.data;
+        }
         return response;
       } catch (error: any) {
         if (error.code === 'ECONNABORTED') {
@@ -73,8 +78,10 @@ export const useSecurityStore = defineStore('security', {
       this.isLoading = true;
       this.errorMessage = null;
       try {
-        const response = await securityService.updateSecuritySettings(settings);
-        this.settings = response.settings;
+        const response = await api.put('/security/settings', settings);
+        if (response.data) {
+          this.settings = response.data;
+        }
         return response;
       } catch (error) {
         this.errorMessage = error instanceof Error ? error.message : 'Failed to update security settings';

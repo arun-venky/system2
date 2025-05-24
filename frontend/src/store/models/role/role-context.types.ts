@@ -1,5 +1,5 @@
-import { Role } from './role.types';
-import { Permission } from './permission.types';
+import type { Role } from './role.types';
+import type { Permission } from './permission.types';
 
 export interface RoleContext {
   roles: Role[];
@@ -8,6 +8,7 @@ export interface RoleContext {
   isLoading: boolean;
   formData: {
     name: string;
+    description?: string;
     permissions: Permission[];
   };
 } 

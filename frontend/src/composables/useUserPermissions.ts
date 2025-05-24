@@ -1,9 +1,7 @@
 import { ref } from 'vue';
-import { User } from '@/store/models';
-import { useUserStore } from '../store/user.store';
+import type { User } from '@/store/models/user/user.types';
 
 export function useUserPermissions() {
-  const userStore = useUserStore();
   const showPermissionsModal = ref(false);
   const selectedUser = ref<User | null>(null);
   const userPermissions = ref<any[]>([]);

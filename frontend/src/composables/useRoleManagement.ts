@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { Role, Permission } from '@/store/models';
+import type { Role, Permission } from '@/store/models';
 import { useRoleStore } from '../store/role.store';
 import { useMachine } from '@xstate/vue';
 import { createRoleMachine } from '../machines/roleMachine';
@@ -14,13 +14,16 @@ export function useRoleManagement() {
   const userSearchQuery = ref('');
   const selectedUsers = ref<string[]>([]);
   const users = ref<any[]>([]);
+  const selectedResource = ref('');
 
   const filteredUsers = computed(() => {
-    if (!userSearchQuery.value) return users.value;
+    if (!userSearchQuery.value) return [];
     const query = userSearchQuery.value.toLowerCase();
+    const assignedUserIds = new Set(users.value.map(u => u._id));
     return users.value.filter(user => 
-      user.username.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query)
+      !assignedUserIds.has(user._id) &&
+      (user.username.toLowerCase().includes(query) ||
+       user.email.toLowerCase().includes(query))
     );
   });
 
@@ -34,8 +37,8 @@ export function useRoleManagement() {
   const openPermissionsModal = async (role: Role) => {
     selectedRole.value = role;
     try {
-      const permissions = await roleStore.getRolePermissions(role._id);
-      selectedRolePermissions.value = permissions;
+      const response = await roleStore.getRolePermissions(role._id);
+      selectedRolePermissions.value = response.permissions || [];
       showPermissionsModal.value = true;
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
@@ -45,8 +48,10 @@ export function useRoleManagement() {
   const openUsersModal = async (role: Role) => {
     selectedRole.value = role;
     try {
-      const roleUsers = await roleStore.getRoleUsers(role._id);
-      users.value = roleUsers;
+      const response = await roleStore.getRoleUsers(role._id);
+      users.value = response.users || [];
+      selectedUsers.value = [];
+      userSearchQuery.value = '';
       showUsersModal.value = true;
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -57,11 +62,21 @@ export function useRoleManagement() {
     if (!selectedRole.value || !selectedUsers.value.length) return;
     try {
       await roleStore.assignRoleToUsers(selectedRole.value._id, selectedUsers.value);
-      showUsersModal.value = false;
+      const response = await roleStore.getRoleUsers(selectedRole.value._id);
+      users.value = response.users || [];
       selectedUsers.value = [];
-      raiseEvent('FETCH');
     } catch (error) {
       console.error('Failed to assign users:', error);
+    }
+  };
+
+  const removeUserFromRole = async (user: any) => {
+    if (!selectedRole.value) return;
+    try {
+      await roleStore.removeRoleFromUsers(selectedRole.value._id, [user._id]);
+      users.value = users.value.filter(u => u._id !== user._id);
+    } catch (error) {
+      console.error('Failed to remove user:', error);
     }
   };
 
@@ -116,6 +131,45 @@ export function useRoleManagement() {
     raiseEvent('SAVE');
   };
 
+  const savePermissions = async () => {
+    if (!selectedRole.value) return;
+    try {
+      await roleStore.updateRolePermissions(selectedRole.value._id, selectedRolePermissions.value);
+      showPermissionsModal.value = false;
+      raiseEvent('FETCH');
+    } catch (error) {
+      console.error('Failed to save permissions:', error);
+    }
+  };
+
+  const addResource = () => {
+    if (!selectedResource.value) return;
+    selectedRolePermissions.value.push({
+      resource: selectedResource.value,
+      actions: []
+    });
+    selectedResource.value = '';
+  };
+
+  const removeResource = (index: number) => {
+    selectedRolePermissions.value.splice(index, 1);
+  };
+
+  const addAction = (permission: Permission, index: number) => {
+    if (!permission.newAction?.trim()) return;
+    if (!permission.actions.includes(permission.newAction)) {
+      permission.actions.push(permission.newAction);
+    }
+    permission.newAction = '';
+  };
+
+  const removeAction = (permission: Permission, action: string, index: number) => {
+    const actionIndex = permission.actions.indexOf(action);
+    if (actionIndex > -1) {
+      permission.actions.splice(actionIndex, 1);
+    }
+  };
+
   return {
     state,
     showPermissionsModal,
@@ -131,6 +185,7 @@ export function useRoleManagement() {
     openPermissionsModal,
     openUsersModal,
     assignUsers,
+    removeUserFromRole,
     removeUsers,
     duplicateRole,
     editRole,
@@ -138,6 +193,11 @@ export function useRoleManagement() {
     confirmDelete,
     addPermission,
     removePermission,
-    saveRole
+    saveRole,
+    savePermissions,
+    addResource,
+    removeResource,
+    addAction,
+    removeAction
   };
 } 

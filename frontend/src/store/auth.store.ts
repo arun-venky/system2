@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
-import { User, AuthState, Permission, Role } from '@/store/models';
+import type { User, AuthState, Permission, Role } from '@/store/models';
 import { useMenuStore } from '../store/menu.store'
-import { authService } from './services/auth.service';
+import api from '@/utils/api';
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
@@ -10,7 +10,8 @@ export const useAuthStore = defineStore('auth', {
     token: null,
     refreshToken: null,
     permissions: [] as Permission[],
-    roles: [] as Role[]
+    roles: [] as Role[],
+    sessionTimeout: 30, // Default session timeout in minutes
   }),
 
   getters: {
@@ -27,7 +28,6 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     setAuth(authData: { user: User; token: string; refreshToken: string }) {
-      console.log('setAuth:', authData);
       this.isAuthenticated = true;
       this.user = authData.user;
       this.token = authData.token;
@@ -61,9 +61,14 @@ export const useAuthStore = defineStore('auth', {
 
     async login(email: string, password: string) {
       try {
-        const response = await authService.login(email, password);
-        this.setAuth(response);
-        return response;
+        const apiResponse = await api.post('/auth/login', { email, password });
+        const response = apiResponse.data;
+        if (response) {
+          this.setAuth(response);
+          return response;
+        } else {
+          throw new Error('Login failed');
+        }
       } catch (error) {
         console.error('Login failed:', error);
         throw error;
@@ -72,7 +77,7 @@ export const useAuthStore = defineStore('auth', {
 
     async logout() {
       try {
-        await authService.logout();
+        await api.post('/auth/logout');
       } catch (error) {
         console.error('Logout failed:', error);
       } finally {
@@ -90,7 +95,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('user');
 
       // Clear menu items cache
-      this.menuStore.clearMenuItemsCache();
+      this.menuStore.clearMenusCache();
 
       // Clear other caches if needed
       // this.pageStore.clearCache();
@@ -102,7 +107,13 @@ export const useAuthStore = defineStore('auth', {
 
     async signup(username: string, email: string, password: string) {
       try {
-        return await authService.signup(username, email, password);
+        const response =  await api.post('/auth/signup', { username, email, password })
+        .then(response => response.data)
+        .catch(error => {
+          console.error('Auth Error: Signup failed', error)
+          throw error
+        })
+        return response.data;
       } catch (error) {
         throw error;
       }
@@ -114,13 +125,25 @@ export const useAuthStore = defineStore('auth', {
       }
 
       try {
-        const response = await authService.getRefreshToken(token);
-        this.setAuth(response);
-        return true;
+        const response = await api.post('/auth/refresh', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    refreshToken: token
+                  })
+                });
+
+        console.log('getRefreshToken response:', response.data);
+        if (response.data) {
+          this.setAuth(response.data);
+          return true;
+        }
       } catch (error) {
         console.error('Token refresh failed:', error);
-        return false;
       }
+      return false;
     },
 
     initializeFromStorage() {
@@ -168,7 +191,8 @@ export const useAuthStore = defineStore('auth', {
         }
 
         // Verify the token with the backend
-        const isValid = await authService.verifyAuth(this.token!);
+        const response = await api.post('/auth/verify', { token: this.token });
+        const isValid  = response.data.valid;        
         if (!isValid) {
           this.logout();
           return false;
@@ -180,6 +204,24 @@ export const useAuthStore = defineStore('auth', {
         this.logout();
         return false;
       }
+    },
+
+    async refreshSession() {
+      try {
+        const response = await api.post('/auth/refresh-session');
+        if (response.data) {
+          this.setAuth(response.data);
+          return true;
+        }
+      } catch (error) {
+        console.error('Session refresh failed:', error);
+        throw error;
+      }
+      return false;
+    },
+  
+    setSessionTimeout(timeout: number) {
+      this.sessionTimeout = timeout;
     }
   }
 }); 

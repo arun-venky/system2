@@ -34,7 +34,7 @@
             class="text-gray-500 hover:text-gray-900 mr-4"
           >
             <span class="sr-only">Open sidebar</span>
-            <Bars3Icon class="h-6 w-6" />
+            <component :is="renderIcon('Bars3Icon', 'h-6 w-6')" />
           </button>
           <h1 class="text-xl font-bold text-gray-800">{{ currentRouteTitle }}</h1>
         </div>
@@ -133,16 +133,9 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../store/auth.store'
+import { useIcon } from '@/composables/useIcon';
 
-// Heroicons
-import { 
-  Bars3Icon, 
-  XMarkIcon, 
-  BellIcon, 
-  ArrowRightOnRectangleIcon} from '@heroicons/vue/24/outline'
-
-// Example icons for notifications (replace as needed)
-import { ShieldCheckIcon, UserIcon, DocumentIcon, LockClosedIcon, ListBulletIcon } from '@heroicons/vue/24/outline'
+const { getIcon, renderIcon } = useIcon();
 const isSidebarOpen = ref(true)
 const showNotificationsPanel = ref(false)
 const notifications = ref([
@@ -152,14 +145,14 @@ const notifications = ref([
     title: 'Role updated',
     message: 'The "Admin" role was updated.',
     timestamp: new Date(),
-    icon: ShieldCheckIcon
+    icon: getIcon('ShieldCheckIcon')
   },
   {
     id: 2,
     title: 'User added',
     message: 'A new user was added.',
     timestamp: new Date(),
-    icon: UserIcon
+    icon: getIcon('UserIcon')
   }
 ])
 const unreadNotifications = computed(() => notifications.value.length > 0)
@@ -204,27 +197,27 @@ const adminRoutes = [
   {
     path: '/admin/menus',
     name: 'menu-management',
-    meta: { title: 'Menu Management', icon: ListBulletIcon }
+    meta: { title: 'Menu Management', icon: getIcon('ListBulletIcon') }
   },
   {
     path: '/admin/users',
     name: 'user-management',
-    meta: { title: 'User Management', icon: UserIcon }
+    meta: { title: 'User Management', icon: getIcon('UserIcon') }
   },
   {
     path: '/admin/roles',
     name: 'role-management',
-    meta: { title: 'Role Management', icon: ShieldCheckIcon }
+    meta: { title: 'Role Management', icon: getIcon('ShieldCheckIcon') }
   },
   {
     path: '/admin/security',
     name: 'security-management',
-    meta: { title: 'Security Management', icon: LockClosedIcon }
+    meta: { title: 'Security Management', icon: getIcon('LockClosedIcon') }
   },
   {
     path: '/admin/pages',
     name: 'page-management',
-    meta: { title: 'Page Management', icon: DocumentIcon }
+    meta: { title: 'Page Management', icon: getIcon('DocumentIcon') }
   }
 ]
 </script>

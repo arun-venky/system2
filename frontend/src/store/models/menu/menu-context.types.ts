@@ -1,6 +1,5 @@
-import { Menu } from './menu.types';
-import { MenuItem } from './menu-item.types';
-import { Role } from '../role/role.types';
+import type { Menu } from './menu.types';
+import type { Role } from '../role/role.types';
 
 export interface MenuContext {
   menus: Menu[];
@@ -8,12 +7,13 @@ export interface MenuContext {
   selectedMenu: Menu | null;
   errorMessage: string | null;
   isLoading: boolean;
-  menuItems: MenuItem[];
   formData: {
-    description: string | number | readonly string[] | null | undefined;
-    isActive: any;
-    isPublic: any;
     name: string;
-    items: MenuItem[];
+    label: string;
+    icon: string;
+    slug: string;
+    displayOrder: number;
+    parent?: string;
+    pageElement?: string;
   };
 } 

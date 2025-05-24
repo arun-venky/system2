@@ -21,7 +21,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    config.retryCount = config.retryCount || 0
+    //config.retryCount = config.retryCount || 0
     return config
   },
   (error) => {

@@ -1,23 +1,31 @@
-import { MenuItem } from './menu-item.types';
+import type { PageElement } from '../page/page-element.types';
 
 export interface Menu {
-  isActive: any;
-  isPublic: any;
-  description: any;
   _id: string;
   name: string;
-  items: MenuItem[];
+  label: string;
+  icon: string;
+  slug: string;
+  displayOrder: number;
+  parent?: Menu;
+  pageElement?: PageElement;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface MenuFormData {
+  _id?: string;
   name: string;
-  items: MenuItem[];
+  label: string;
+  icon: string;
+  slug: string;
+  displayOrder: number;
+  parent?: string;
+  pageElement?: string;
 }
 
 export interface MenuResponse {
-  menus: any[];
-  roles: any[];
+  menus: Menu[];
+  roles: string[];
   message?: string;
 } 

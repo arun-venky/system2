@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { User } from '@/store/models';
+import type { User } from '@/store/models';
 import { useUserStore } from '../store/user.store';
 import { useMachine } from '@xstate/vue';
 import { createUserMachine } from '../machines/userMachine';

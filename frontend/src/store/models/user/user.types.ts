@@ -1,4 +1,4 @@
-import { Permission, Role } from "../role";
+import type { Permission, Role } from "../role";
 
 export interface User {
   twoFactorEnabled: any;

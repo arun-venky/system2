@@ -20,7 +20,10 @@ export interface SecuritySettings {
   ipWhitelist: {
     enabled: boolean;
     ips: string[];
+    lastSecurityScan: string;
   };
+  failedLoginAttempts: number;
+  activeSessions: number;
 }
 
 // export interface SecuritySettings {

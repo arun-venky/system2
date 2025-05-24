@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
-import { Menu, MenuItem, MenuState } from '@/store/models';
-import { menuService } from './services/menu.service';
+import type { Menu } from '@/store/models/menu/menu.types';  
+import type { MenuState } from '@/store/models/menu/menu-state.types';  
+import type { Role } from '@/store/models/role/role.types';
+import api from '@/utils/api';
 
 export const useMenuStore = defineStore('menu', {
   state: (): MenuState => ({
@@ -10,20 +12,27 @@ export const useMenuStore = defineStore('menu', {
     refreshToken: null,
     permissions: [],
     roles: [],
-    menuItemsCache: {} as Record<string, MenuItem[]>,
+    menusCache: {} as Record<string, Menu>,
     isLoading: false,
-    errorMessage: null
+    errorMessage: null,
+    availableRoles: []
   }),
 
   getters: {
+    getAllMenus: (state) => {
+      return Object.values(state.menusCache);
+    },
+
     getMenuById: (state) => (id: string) => {
-      return state.menuItemsCache[id] || null;
+      return state.menusCache[id] || null;
     },
     
     getMenuBySlug: (state) => (slug: string) => {
-      return Object.values(state.menuItemsCache).find(menu => 
-        menu.some(item => item.slug === slug)
-      ) || null;
+      return Object.values(state.menusCache).find(menu => menu.slug === slug) || null;
+    },
+
+    getRootMenus: (state) => {
+      return Object.values(state.menusCache).filter(menu => !menu.parent);
     }
   },
 
@@ -32,11 +41,18 @@ export const useMenuStore = defineStore('menu', {
       this.isLoading = true;
       this.errorMessage = null;
       try {
-        const response = await menuService.fetchMenus();
-        this.menuItemsCache = response.menus.reduce((acc: Record<string, MenuItem[]>, menu: Menu) => {
-          acc[menu._id] = menu.items;
+        const apiResponse = await api.get('/menus');
+        const response = apiResponse.data;
+        
+        this.menusCache = response.menus.reduce((acc: Record<string, Menu>, menu: Menu) => {
+          acc[menu._id] = menu;
           return acc;
-        }, {} as Record<string, MenuItem[]>);
+        }, {} as Record<string, Menu>);
+
+        if (response.roles) {
+          this.availableRoles = response.roles;
+        }
+        
         return response;
       } catch (error) {
         this.errorMessage = error instanceof Error ? error.message : 'Failed to fetch menus';
@@ -48,23 +64,28 @@ export const useMenuStore = defineStore('menu', {
     
     async createMenu(menuData: Partial<Menu>) {
       try {
-        return await menuService.createMenu(menuData);
+        const response = await api.post('/menus', menuData);
+        this.menusCache[response.data._id] = response.data;
+        return response.data;
       } catch (error) {
         throw error;
       }
     },
     
-    async updateMenu(id: string, menuData: Partial<Menu>) {
+    async updateMenu(menuId: string, menuData: Partial<Menu>) {
       try {
-        return await menuService.updateMenu(id, menuData);
+        const response = await api.put(`/menus/${menuId}`, menuData);
+        this.menusCache[menuId] = response.data;
+        return response.data;
       } catch (error) {
         throw error;
       }
     },
     
-    async deleteMenu(id: string) {
+    async deleteMenu(menuId: string) {
       try {
-        return await menuService.deleteMenu(id);
+        await api.delete(`/menus/${menuId}`);
+        delete this.menusCache[menuId];
       } catch (error) {
         throw error;
       }
@@ -76,50 +97,23 @@ export const useMenuStore = defineStore('menu', {
       } catch (error) {
         throw error;
       }
-    },
+    },    
     
-    async addMenuItem(menuId: string, item: MenuItem) {
+    clearMenusCache(menuId?: string) {
+      if (menuId) {
+        delete this.menusCache[menuId];
+      } else {
+        Object.keys(this.menusCache).forEach(id => delete this.menusCache[id]);
+      }
+    },
+
+    async reorderMenus(menuIds: string[]) {
       try {
-        return await menuService.addMenuItem(menuId, item);
+        const response = await api.put('/menus/reorder', { menuIds });
+        return response.data;
       } catch (error) {
         throw error;
       }
-    },
-    
-    async updateMenuItem(menuId: string, itemId: string, item: Partial<MenuItem>) {
-      try {
-        return await menuService.updateMenuItem(menuId, itemId, item);
-      } catch (error) {
-        throw error;
-      }
-    },
-    
-    async deleteMenuItem(menuId: string, itemId: string) {
-      try {
-        return await menuService.deleteMenuItem(menuId, itemId);
-      } catch (error) {
-        throw error;
-      }
-    },
-    
-    async reorderMenuItems(menuId: string, itemIds: string[]) {
-      try {
-        return await menuService.reorderMenuItems(menuId, itemIds);
-      } catch (error) {
-        throw error;
-      }
-    },
-    
-    async getMenuItems(menuId: string, forceRefresh = false) {
-      try {
-        return await menuService.getMenuItems(menuId, forceRefresh);
-      } catch (error) {
-        throw error;
-      }
-    },
-    
-    clearMenuItemsCache(menuId?: string) {
-      menuService.clearMenuItemsCache(menuId);
-    }    
+    }
   }
 }); 

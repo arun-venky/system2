@@ -1,3 +1,3 @@
 export * from './security-settings.types';
-export * from './audit-log.types';
+export type { AuditLog, AuditLogFilters } from './audit-log.types';
 export * from './security-state.types'; 
